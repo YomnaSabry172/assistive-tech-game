@@ -1,0 +1,12 @@
+/code
+*.log
+*.tmp
+*.bak
+.DS_Store
+.idea/  
+.vscode/
+__pycache__/
+*.pyc
+dist/
+build/
+    
