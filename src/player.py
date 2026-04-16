@@ -25,6 +25,10 @@ class Player(pygame.sprite.Sprite):
         self.jump_power = -500   
         self.on_ground = False
         
+        # CV Inputs
+        self.cv_direction_x = 0
+        self.cv_jump = False
+        
         # Collision
         self.collision_sprites = collision_sprites
 
@@ -60,14 +64,20 @@ class Player(pygame.sprite.Sprite):
         keys = pygame.key.get_pressed()
         self.direction.x = 0
         
-        if keys[pygame.K_LEFT]:
-            self.direction.x = -1
+        dir_x = self.cv_direction_x
+        if dir_x == 0:
+            if keys[pygame.K_LEFT]:
+                dir_x = -1
+            if keys[pygame.K_RIGHT]:
+                dir_x = 1
+                
+        self.direction.x = dir_x
+        if dir_x < 0:
             self.facing_right = False
-        if keys[pygame.K_RIGHT]:
-            self.direction.x = 1
+        elif dir_x > 0:
             self.facing_right = True
             
-        if keys[pygame.K_SPACE] and self.on_ground:
+        if (keys[pygame.K_SPACE] or self.cv_jump) and self.on_ground:
             self.direction.y = self.jump_power
             self.on_ground = False
 

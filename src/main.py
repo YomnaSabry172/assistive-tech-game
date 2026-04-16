@@ -1,16 +1,18 @@
-# main.py
 import pygame
 import sys
 from settings import *
 from game import Game
+from cv_controller import CVController
 
 class GameManager:
     def __init__(self):
+        self.cv_controller = CVController()
         pygame.init()
         self.display = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption('Ninja Frog Upgrade')
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(pygame.font.match_font(UI_FONT), 64)
+        
         
         self.state = 'game'
         self.game = Game()
@@ -37,6 +39,22 @@ class GameManager:
         self.display.blit(go_surf, go_rect)
         self.display.blit(rest_surf, rest_rect)
         self.display.blit(score_surf, score_rect)
+        
+        stats = self.cv_controller.stats
+        stats_font = pygame.font.Font(pygame.font.match_font(UI_FONT), 24)
+        
+        stat_texts = [
+            f"Active Time: {stats['active_time']:.1f}s",
+            f"Total Jumps: {stats['jumps']}",
+            f"Max Openness: {stats['max_openness']:.2f}",
+            f"Left Moves: {stats['left_moves']}  |  Right Moves: {stats['right_moves']}"
+        ]
+        
+        base_y = WINDOW_HEIGHT//2 + 150
+        for i, text in enumerate(stat_texts):
+            surf = stats_font.render(text, True, 'lightblue')
+            rect = surf.get_rect(center=(WINDOW_WIDTH//2, base_y + i * 35))
+            self.display.blit(surf, rect)
 
     def run(self):
         while self.running:
@@ -56,8 +74,9 @@ class GameManager:
 
             # --- State Routing ---
             if self.state == 'game':
-                # self.game.run(dt) returns False if the player hits a hazard
-                is_alive = self.game.run(dt)
+                self.cv_controller.process_frame()
+                # self.game.run(dt, self.cv_controller) returns False if the player hits a hazard
+                is_alive = self.game.run(dt, self.cv_controller)
                 if not is_alive:
                     self.state = 'game_over'
             
@@ -66,6 +85,7 @@ class GameManager:
 
             pygame.display.flip()
             
+        self.cv_controller.release()
         pygame.quit()
         sys.exit()
 

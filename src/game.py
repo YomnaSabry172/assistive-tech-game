@@ -102,7 +102,7 @@ class Game:
                 elif char == 'B':
                     Trap((self.all_sprites, self.hazard_sprites), (x, y), 'ball')
 
-        self.player = Player((self.all_sprites,), (100, 100), self.collision_sprites)
+        self.player = Player((self.all_sprites,), (120, 180), self.collision_sprites)
 
     def check_collisions(self):
         # Check fruit pickup
@@ -117,12 +117,27 @@ class Game:
 
         return True # Player is alive
 
-    def draw_ui(self):
+    def draw_ui(self, cv_controller=None):
         score_surf = self.font.render(f'SCORE: {self.score}', True, TEXT_COLOR)
         score_rect = score_surf.get_rect(topleft=(20, 20))
         self.display_surface.blit(score_surf, score_rect)
+        
+        if cv_controller and cv_controller.surface:
+            pip_w, pip_h = 320, 240
+            pip_surf = pygame.transform.scale(cv_controller.surface, (pip_w, pip_h))
+            
+            x = WINDOW_WIDTH - pip_w - 20
+            y = WINDOW_HEIGHT - pip_h - 20
+            
+            # Border
+            pygame.draw.rect(self.display_surface, (255, 215, 0), (x-2, y-2, pip_w+4, pip_h+4), 2)
+            self.display_surface.blit(pip_surf, (x, y))
 
-    def run(self, dt):
+    def run(self, dt, cv_controller=None):
+        if cv_controller:
+            self.player.cv_direction_x = cv_controller.direction_x
+            self.player.cv_jump = cv_controller.jump
+            
         # Update
         self.all_sprites.update(dt)
 
@@ -131,6 +146,6 @@ class Game:
 
         # Draw
         self.all_sprites.custom_draw(self.player)
-        self.draw_ui()
+        self.draw_ui(cv_controller)
 
         return is_alive
