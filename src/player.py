@@ -14,9 +14,10 @@ class Player(pygame.sprite.Sprite):
         
         self.image = self.animations[self.status][self.frame_index]
         self.rect = self.image.get_rect(topleft=pos)
+        self.hitbox = self.rect.inflate(-10, -30)
         
         # --- PHYSICS & MOVEMENT ---
-        self.pos = pygame.math.Vector2(self.rect.topleft)
+        self.pos = pygame.math.Vector2(self.hitbox.topleft)
         self.direction = pygame.math.Vector2(0, 0)
         
         self.speed = 300         
@@ -101,44 +102,46 @@ class Player(pygame.sprite.Sprite):
 
     def horizontal_collisions(self):
         for sprite in self.collision_sprites:
-            if self.rect.colliderect(sprite.rect):
-                if self.direction.x > 0: # Moving right
-                    self.rect.right = sprite.rect.left
-                    self.pos.x = self.rect.x
-                elif self.direction.x < 0: # Moving left
-                    self.rect.left = sprite.rect.right
-                    self.pos.x = self.rect.x
+            # Check hitbox instead of rect
+            if self.hitbox.colliderect(sprite.rect):
+                if self.direction.x > 0: 
+                    self.hitbox.right = sprite.rect.left
+                    self.pos.x = self.hitbox.x
+                elif self.direction.x < 0:
+                    self.hitbox.left = sprite.rect.right
+                    self.pos.x = self.hitbox.x
 
     def vertical_collisions(self):
         self.on_ground = False
         for sprite in self.collision_sprites:
-            if self.rect.colliderect(sprite.rect):
-                if self.direction.y > 0: # Falling
-                    self.rect.bottom = sprite.rect.top
-                    self.pos.y = self.rect.y
+            # Check hitbox instead of rect
+            if self.hitbox.colliderect(sprite.rect):
+                if self.direction.y > 0: 
+                    self.hitbox.bottom = sprite.rect.top
+                    self.pos.y = self.hitbox.y
                     self.direction.y = 0
                     self.on_ground = True
-                elif self.direction.y < 0: # Hitting ceiling
-                    self.rect.top = sprite.rect.bottom
-                    self.pos.y = self.rect.y
+                elif self.direction.y < 0: 
+                    self.hitbox.top = sprite.rect.bottom
+                    self.pos.y = self.hitbox.y
                     self.direction.y = 0
-
     def update(self, dt):
         self.get_input()
-
-        # Apply Gravity
         self.direction.y += self.gravity * dt
 
-        # X Movement & Collision
+        # X Movement
         self.pos.x += self.direction.x * self.speed * dt
-        self.rect.x = round(self.pos.x)
+        self.hitbox.x = round(self.pos.x) # Move hitbox
         self.horizontal_collisions()
 
-        # Y Movement & Collision
+        # Y Movement
         self.pos.y += self.direction.y * dt
-        self.rect.y = round(self.pos.y)
+        self.hitbox.y = round(self.pos.y) # Move hitbox
         self.vertical_collisions()
 
-        # Determine state and animate!
+        # IMPORTANT: Make the visual rect follow the physical hitbox
+        # We align the bottoms so the frog's feet stay on the ground
+        self.rect.midbottom = self.hitbox.midbottom 
+
         self.get_status()
         self.animate(dt)
