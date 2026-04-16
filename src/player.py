@@ -1,133 +1,144 @@
 import pygame
+from settings import *
 
-class Player:
-    def __init__(self, x, y):
-        # Animation variables
-        self.animations = {'idle': [], 'run': [], 'jump': [], 'fall': []}
-        self.state = 'idle'
+class Player(pygame.sprite.Sprite):
+    def __init__(self, groups, pos, collision_sprites):
+        super().__init__(groups)
+        
+        # --- ANIMATION SETUP ---
+        self.import_character_assets()
         self.frame_index = 0
-        self.animation_speed = 0.2 # How fast the frames change
-        self.facing_right = True
-
-        # Load all animations
-        self.load_animations()
+        self.animation_speed = 15
+        self.status = 'idle'      # The current state of the player
+        self.facing_right = True  # Track which way to flip the image
         
-        # Set initial image and rect (Hitbox)
-        self.image = self.animations[self.state][self.frame_index]
-        self.rect = self.image.get_rect(topleft=(x, y))
+        self.image = self.animations[self.status][self.frame_index]
+        self.rect = self.image.get_rect(topleft=pos)
         
-        # Physics variables
-        self.vel_x = 0
-        self.vel_y = 0       
-        self.speed = 5       
-        self.gravity = 0.5   
-        self.jump_power = -10 
+        # --- PHYSICS & MOVEMENT ---
+        self.pos = pygame.math.Vector2(self.rect.topleft)
+        self.direction = pygame.math.Vector2(0, 0)
+        
+        self.speed = 300         
+        self.gravity = 1200      
+        self.jump_power = -500   
         self.on_ground = False
-
-    def import_sprite_sheet(self, path):
-        """Loads a sprite sheet and slices it into individual 32x32 frames."""
-        sheet = pygame.image.load(path).convert_alpha()
-        frames = []
-        # The frog sprites are 32x32. We figure out how many frames are in the sheet
-        # by dividing the total width by 32.
-        num_frames = sheet.get_width() // 32
         
-        for i in range(num_frames):
-            # Create a blank 32x32 surface
-            surface = pygame.Surface((32, 32), pygame.SRCALPHA)
-            # Cut the specific frame out of the sheet
-            surface.blit(sheet, (0, 0), (i * 32, 0, 32, 32))
-            # Scale it up (Optional: scale by 2 to make it 64x64 on screen)
-            surface = pygame.transform.scale(surface, (64, 64)) 
-            frames.append(surface)
-            
-        return frames
+        # Collision
+        self.collision_sprites = collision_sprites
 
-    def load_animations(self):
-        """Loads all the different sprite sheets for the player."""
-        base_path = "../assets/Main Characters/Ninja Frog/"
-        self.animations['idle'] = self.import_sprite_sheet(base_path + "Idle (32x32).png")
-        self.animations['run'] = self.import_sprite_sheet(base_path + "Run (32x32).png")
-        self.animations['jump'] = self.import_sprite_sheet(base_path + "Jump (32x32).png")
-        self.animations['fall'] = self.import_sprite_sheet(base_path + "Fall (32x32).png")
+    def import_character_assets(self):
+        """Loads all the different sprite sheets into a dictionary."""
+        # Make sure these paths match exactly where your images are saved!
+        character_path = "../assets/Main Characters/Ninja Frog/"
+        
+        self.animations = {
+            'idle': [], 'run': [], 'jump': [], 'fall': [], 
+            'double_jump': [], 'wall_jump': [], 'hit': []
+        }
+
+        for animation in self.animations.keys():
+            # Build the path based on the dictionary keys
+            # Example: '../assets/Main Characters/Ninja Frog/Idle (32x32).png'
+            # Note: We capitalize the first letter to match your file names (Idle, Run, etc.)
+            full_path = f"{character_path}{animation.replace('_', ' ').title()} (32x32).png"
+            
+            try:
+                sheet = pygame.image.load(full_path).convert_alpha()
+                num_frames = sheet.get_width() // 32
+                
+                for i in range(num_frames):
+                    frame = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    frame.blit(sheet, (0, 0), (i * 32, 0, 32, 32))
+                    frame = pygame.transform.scale(frame, (48, 48)) # Scale to match tiles
+                    self.animations[animation].append(frame)
+            except FileNotFoundError:
+                print(f"Warning: Could not load {full_path}. Check your file names and paths.")
 
     def get_input(self):
-        """Handles keyboard input for movement."""
         keys = pygame.key.get_pressed()
-        self.vel_x = 0
-
+        self.direction.x = 0
+        
         if keys[pygame.K_LEFT]:
-            self.vel_x = -self.speed
+            self.direction.x = -1
             self.facing_right = False
         if keys[pygame.K_RIGHT]:
-            self.vel_x = self.speed
+            self.direction.x = 1
             self.facing_right = True
-
+            
         if keys[pygame.K_SPACE] and self.on_ground:
-            self.vel_y = self.jump_power
+            self.direction.y = self.jump_power
+            self.on_ground = False
 
-    def update_state(self):
-        """Determines which animation to play based on what the player is doing."""
-        if self.vel_y < 0:
-            self.state = 'jump'
-        elif self.vel_y > 1: # We use > 1 to allow a tiny bit of gravity tolerance
-            self.state = 'fall'
-        elif self.vel_x != 0:
-            self.state = 'run'
+    def get_status(self):
+        """Determines what state the frog is in based on its movement."""
+        if self.direction.y < 0:
+            self.status = 'jump'
+        elif self.direction.y > 1: # > 1 means falling (accounting for tiny gravity shifts)
+            self.status = 'fall'
         else:
-            self.state = 'idle'
+            if self.direction.x != 0:
+                self.status = 'run'
+            else:
+                self.status = 'idle'
 
-    def animate(self):
-        """Cycles through the frames of the current animation."""
-        animation_list = self.animations[self.state]
+    def animate(self, dt):
+        """Plays the correct animation frames based on the current status."""
+        animation = self.animations[self.status]
         
-        # Increase frame index by animation speed
-        self.frame_index += self.animation_speed
-        
-        # Loop back to the first frame if we reach the end of the list
-        if self.frame_index >= len(animation_list):
+        # Loop over the frame index
+        self.frame_index += self.animation_speed * dt
+        if self.frame_index >= len(animation):
             self.frame_index = 0
             
-        # Get the current image frame
-        current_image = animation_list[int(self.frame_index)]
+        current_frame = animation[int(self.frame_index)]
         
         # Flip the image if facing left
         if self.facing_right:
-            self.image = current_image
+            self.image = current_frame
         else:
-            self.image = pygame.transform.flip(current_image, True, False)
+            self.image = pygame.transform.flip(current_frame, True, False)
 
-    def update(self, platforms_list):
-        # 1. Get user input
+    def horizontal_collisions(self):
+        for sprite in self.collision_sprites:
+            if self.rect.colliderect(sprite.rect):
+                if self.direction.x > 0: # Moving right
+                    self.rect.right = sprite.rect.left
+                    self.pos.x = self.rect.x
+                elif self.direction.x < 0: # Moving left
+                    self.rect.left = sprite.rect.right
+                    self.pos.x = self.rect.x
+
+    def vertical_collisions(self):
+        self.on_ground = False
+        for sprite in self.collision_sprites:
+            if self.rect.colliderect(sprite.rect):
+                if self.direction.y > 0: # Falling
+                    self.rect.bottom = sprite.rect.top
+                    self.pos.y = self.rect.y
+                    self.direction.y = 0
+                    self.on_ground = True
+                elif self.direction.y < 0: # Hitting ceiling
+                    self.rect.top = sprite.rect.bottom
+                    self.pos.y = self.rect.y
+                    self.direction.y = 0
+
+    def update(self, dt):
         self.get_input()
 
-        # 2. Horizontal Movement & Collisions (Need to separate X and Y collisions)
-        self.rect.x += self.vel_x
-        for platform in platforms_list:
-            if self.rect.colliderect(platform):
-                if self.vel_x > 0: # Moving right
-                    self.rect.right = platform.left
-                elif self.vel_x < 0: # Moving left
-                    self.rect.left = platform.right
+        # Apply Gravity
+        self.direction.y += self.gravity * dt
 
-        # 3. Vertical Movement (Gravity) & Collisions
-        self.vel_y += self.gravity
-        self.rect.y += self.vel_y
-        self.on_ground = False
+        # X Movement & Collision
+        self.pos.x += self.direction.x * self.speed * dt
+        self.rect.x = round(self.pos.x)
+        self.horizontal_collisions()
 
-        for platform in platforms_list:
-            if self.rect.colliderect(platform):
-                if self.vel_y > 0: # Falling down
-                    self.rect.bottom = platform.top
-                    self.vel_y = 0
-                    self.on_ground = True
-                elif self.vel_y < 0: # Jumping up and hitting a ceiling
-                    self.rect.top = platform.bottom
-                    self.vel_y = 0
+        # Y Movement & Collision
+        self.pos.y += self.direction.y * dt
+        self.rect.y = round(self.pos.y)
+        self.vertical_collisions()
 
-        # 4. Handle Animations
-        self.update_state()
-        self.animate()
-
-    def draw(self, surface):
-        surface.blit(self.image, self.rect)
+        # Determine state and animate!
+        self.get_status()
+        self.animate(dt)
