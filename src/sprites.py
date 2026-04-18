@@ -29,7 +29,7 @@ class CameraGroup(pygame.sprite.Group):
         self.half_h = self.display_surface.get_size()[1] // 2
 
         try:
-            self.bg_tile = pygame.image.load("Brown.png").convert()
+            self.bg_tile = pygame.image.load("../assets/Background/Brown.png").convert()
             self.bg_w, self.bg_h = self.bg_tile.get_size()
         except FileNotFoundError:
             self.bg_tile = pygame.Surface((64, 64))
@@ -80,8 +80,6 @@ class Fruit(AnimatedSprite):
         frames = import_sprite_sheet("../assets/Items/Fruits/Strawberry.png", 32, 32, 1.5)
         super().__init__(groups, pos, frames, 15)
 
-# sprites.py
-
 class Enemy(AnimatedSprite):
     def __init__(self, groups, pos):
         frames = import_sprite_sheet("../assets/Main Characters/Mask Dude/Idle (32x32).png", 32, 32, 1.5)
@@ -90,6 +88,7 @@ class Enemy(AnimatedSprite):
         self.rect = self.image.get_rect(bottomleft=(pos[0], pos[1] + TILE_SIZE))
         # Hitbox for dying (Shrink 20px horizontally, 10px vertically)
         self.hitbox = self.rect.inflate(-20, -10)
+
 class Trap(pygame.sprite.Sprite):
     def __init__(self, groups, pos, trap_type):
         super().__init__(groups)
@@ -116,3 +115,27 @@ class Trap(pygame.sprite.Sprite):
                 self.image = pygame.Surface((TILE_SIZE, TILE_SIZE))
                 self.image.fill('gray')
                 self.rect = self.image.get_rect(topleft=pos)
+
+class Goal(pygame.sprite.Sprite):
+    def __init__(self, groups, pos):
+        super().__init__(groups)
+        try:
+            self.unlocked_image = pygame.image.load("../assets/Items/Checkpoints/End/End (Idle).png").convert_alpha()
+            self.unlocked_image = pygame.transform.scale(self.unlocked_image, (TILE_SIZE, TILE_SIZE))
+        except:
+            self.unlocked_image = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.unlocked_image.fill('gold')
+        
+        # Locked state visual (Semi-transparent)
+        self.locked_image = self.unlocked_image.copy()
+        self.locked_image.set_alpha(100)
+        
+        self.image = self.locked_image
+        self.rect = self.image.get_rect(topleft=pos)
+        self.hitbox = self.rect.inflate(-10, -10)
+        self.locked = True
+
+    def unlock(self):
+        if self.locked:
+            self.image = self.unlocked_image
+            self.locked = False

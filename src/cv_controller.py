@@ -2,22 +2,38 @@ import cv2
 import numpy as np
 import pygame
 import time
-from hand_rehab_game import HandTracker, DIST_PARTIAL
+import mediapipe as mp
+from gesture_detector import GestureDetector
+
+USED_GESTURES = ["Open-Palm", "Thumb-Pinky", "Thumb-Index"]
 
 class CVController:
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        self.tracker = HandTracker()
+        
+        # Initialize MediaPipe Hands
+        self.mp_hands = mp.solutions.hands
+        self.hands = self.mp_hands.Hands(
+            static_image_mode=False,
+            max_num_hands=1,
+            min_detection_confidence=0.7,
+            min_tracking_confidence=0.7
+        )
+        self.mp_draw = mp.solutions.drawing_utils
+        
+        # Initialize Gesture Detector
+        self.detector = GestureDetector()
         
         # Inputs returned to game
         self.direction_x = 0
         self.jump = False
+        self.gesture_label = "Unknown"
         
         # State
         self.surface = None
-        self.was_open = False
+        self.was_jumping_gesture = False
         
         # Stats
         self.stats = {
@@ -40,57 +56,96 @@ class CVController:
         self.last_frame_time = now
         
         frame = cv2.flip(frame, 1) # Mirror
+        h, w, _ = frame.shape
 
-        # Process hand
-        landmarks_list, annotated = self.tracker.process(frame)
+        # Convert the BGR image to RGB
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Process the frame with MediaPipe Hands
+        results = self.hands.process(rgb_frame)
         
         self.direction_x = 0
         self.jump = False
+        self.gesture_label = "No Hand"
 
-        h, w, _ = frame.shape
-
-        if landmarks_list:
+        if results.multi_hand_landmarks:
             self.stats['active_time'] += dt
-            lm = landmarks_list[0]
+            hand_landmarks = results.multi_hand_landmarks[0]
             
-            # Map X position to left/right
-            # Palm center is landmark 9
-            palm_x_norm = lm[9][0]
+            # 1. Draw landmarks
+            self.mp_draw.draw_landmarks(
+                frame, 
+                hand_landmarks, 
+                self.mp_hands.HAND_CONNECTIONS,
+                self.mp_draw.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=4),
+                self.mp_draw.DrawingSpec(color=(0, 0, 255), thickness=2)
+            )
+
+            # 2. Extract Landmarks for Detector
+            landmarks = hand_landmarks.landmark
             
-            # left zone: < 0.4, right zone: > 0.6
-            if palm_x_norm < 0.4:
-                self.direction_x = -1
-                self.stats['left_moves'] += 1
-            elif palm_x_norm > 0.6:
-                self.direction_x = 1
-                self.stats['right_moves'] += 1
-                
-            # Map openness to jump
-            distances, primary_dist, openness = self.tracker.get_finger_distances(lm)
+            # 3. Detect Gesture
+            self.gesture_label = self.detector.detect(landmarks)
             
-            if openness > self.stats['max_openness']:
-                self.stats['max_openness'] = openness
-            
-            is_open = primary_dist > DIST_PARTIAL
-            if is_open and not self.was_open:
-                # Trigger jump on rising edge
+            # 4. Map Gesture to vertical Jump
+            # Using "Open Palm" as jump trigger
+            is_jumping_gesture = (self.gesture_label == "Open Palm")
+            if is_jumping_gesture and not self.was_jumping_gesture:
                 self.jump = True
                 self.stats['jumps'] += 1
-            self.was_open = is_open
+            self.was_jumping_gesture = is_jumping_gesture
 
-            # Add some debugging lines to annotated
-            cv2.line(annotated, (int(w*0.4), 0), (int(w*0.4), h), (0,0,255), 2)
-            cv2.line(annotated, (int(w*0.6), 0), (int(w*0.6), h), (0,0,255), 2)
+            # 4.2. Handle Diagonal jumps
+            is_jumping_gesture = (self.gesture_label == "Thumb-Ring")
+            if is_jumping_gesture and not self.was_jumping_gesture:
+                self.jump = True
+                self.direction_x = 1
+                self.stats['right_moves'] +=1
+                self.stats['jumps'] += 1
+            self.was_jumping_gesture = is_jumping_gesture
+
+            is_jumping_gesture = (self.gesture_label == "Thumb-Middle")
+            if is_jumping_gesture and not self.was_jumping_gesture:
+                self.jump = True
+                self.direction_x = -1
+                self.stats['left_moves'] +=1
+                self.stats['jumps'] += 1
+            self.was_jumping_gesture = is_jumping_gesture
+
+            # 5. Map Position to direction_x
+            # Palm center (landmark 9: Middle Finger MCP)
+
+            # palm_x_norm = landmarks[9].x
             
-            # Show open state
-            msg = "OPEN" if is_open else "CLOSED"
-            color = (0, 255, 0) if is_open else (0, 0, 255)
-            cv2.putText(annotated, msg, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            # # Left zone: < 0.4, Right zone: > 0.6
+            # if palm_x_norm < 0.4:
+            #     self.direction_x = -1
+            #     self.stats['left_moves'] += 1
+            # elif palm_x_norm > 0.6:
+            #     self.direction_x = 1
+            #     self.stats['right_moves'] += 1
+
+            # 5.2. Map position to right
+            if (self.gesture_label == "Thumb-Pinky"):
+                self.direction_x = 1
+                self.stats['right_moves'] += 1
+            elif (self.gesture_label == "Thumb-Index"):
+                self.direction_x = -1
+                self.stats['left_moves'] += 1
+
+            # Debug Overlay on frame
+            cv2.line(frame, (int(w*0.4), 0), (int(w*0.4), h), (255, 255, 255), 1)
+            cv2.line(frame, (int(w*0.6), 0), (int(w*0.6), h), (255, 255, 255), 1)
+            
+            # color = (0, 255, 0) if is_jumping_gesture else (0, 0, 255)
+            color = (0, 255, 0) if self.gesture_label in USED_GESTURES else (0, 0, 255)
+            cv2.putText(frame, f"Gesture: {self.gesture_label}", (10, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
         # Convert to pygame Surface
-        annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+        annotated_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         self.surface = pygame.image.frombuffer(annotated_rgb.tobytes(), (w, h), 'RGB')
 
     def release(self):
         self.cap.release()
-        self.tracker.release()
+        self.hands.close()
