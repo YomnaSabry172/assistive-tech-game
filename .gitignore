@@ -10,6 +10,9 @@ __pycache__/
 dist/
 build/
 .venv
+venv_3
+venv_2
+venv
 venv311
 /src/hand_rehab_game.py
 /tasks
