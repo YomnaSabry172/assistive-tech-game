@@ -11,3 +11,5 @@ dist/
 build/
 .venv
 venv311
+/src/hand_rehab_game.py
+/tasks
