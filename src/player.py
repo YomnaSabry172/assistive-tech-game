@@ -21,7 +21,7 @@ class Player(pygame.sprite.Sprite):
         # --- PHYSICS & MOVEMENT ---
         self.pos = pygame.math.Vector2(self.hitbox.topleft)
         self.direction = pygame.math.Vector2(0, 0)
-        self.lives = 3
+        self.lives = 10
         self.hit_cooldown = 1000
         self.last_hit_time = 0
         

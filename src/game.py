@@ -62,6 +62,11 @@ class Game:
 
     def setup_level(self):
         level_map = LEVELS[self.level_index]
+        
+        # Initialize player first so enemies can reference it
+        # We find 'S' or just default to a position if not found
+        # Actually, let's just initialize it at the top with a temporary pos
+        self.player = Player((self.all_sprites,), (0, 0), self.collision_sprites, self.spell_sprites)
 
         for row_index, row in enumerate(level_map):
             for col_index, char in enumerate(row):
@@ -73,7 +78,10 @@ class Game:
                 elif char == '*':
                     Fruit((self.all_sprites, self.fruit_sprites), (x, y))
                 elif char == 'M':
-                    Enemy((self.all_sprites, self.hazard_sprites), (x, y))
+                    Enemy((self.all_sprites, self.hazard_sprites), (x, y), self.collision_sprites)
+                elif char == '@': # Player Start
+                    self.player.hitbox.topleft = (x, y)
+                    self.player.pos = pygame.math.Vector2(self.player.hitbox.topleft)
                 elif char == 'X':
                     Trap((self.all_sprites, self.hazard_sprites), (x, y), 'spike')
                 elif char == 'B':
@@ -81,7 +89,10 @@ class Game:
                 elif char == 'E':
                     Goal((self.all_sprites, self.goal_sprites), (x, y))
 
-        self.player = Player((self.all_sprites,), (150, 650), self.collision_sprites, self.spell_sprites)
+        # If no 'P' was in map, set a default
+        if self.player.pos == pygame.math.Vector2(0, 0):
+            self.player.hitbox.topleft = (150, 650)
+            self.player.pos = pygame.math.Vector2(self.player.hitbox.topleft)
 
     def check_collisions(self, dt):
         # Check fruit pickup

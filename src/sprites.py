@@ -80,14 +80,87 @@ class Fruit(AnimatedSprite):
         frames = import_sprite_sheet("../assets/Items/Fruits/Strawberry.png", 32, 32, 1.5)
         super().__init__(groups, pos, frames, 15)
 
-class Enemy(AnimatedSprite):
-    def __init__(self, groups, pos):
-        frames = import_sprite_sheet("../assets/Main Characters/Mask Dude/Idle (32x32).png", 32, 32, 1.5)
-        super().__init__(groups, pos, frames, 12)
-        # Rect for drawing
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, groups, pos, collision_sprites):
+        super().__init__(groups)
+        self.import_assets()
+        self.status = 'idle'
+        self.frame_index = 0
+        self.animation_speed = 12
+        
+        self.image = self.animations[self.status][self.frame_index]
         self.rect = self.image.get_rect(bottomleft=(pos[0], pos[1] + TILE_SIZE))
-        # Hitbox for dying (Shrink 20px horizontally, 10px vertically)
-        self.hitbox = self.rect.inflate(-20, -10)
+        self.hitbox = self.rect.inflate(-10, -10)
+        
+        # Movement
+        self.direction = 1
+        self.speed = 100
+        self.collision_sprites = collision_sprites
+
+    def import_assets(self):
+        self.animations = {'idle': [], 'run': []}
+        path = "../assets/Main Characters/Mask Dude/"
+        
+        for state in self.animations.keys():
+            full_path = f"{path}{state.title()} (32x32).png"
+            self.animations[state] = import_sprite_sheet(full_path, 32, 32, 1.5)
+
+    def animate(self, dt):
+        animation = self.animations[self.status]
+        self.frame_index += self.animation_speed * dt
+        if self.frame_index >= len(animation):
+            self.frame_index = 0
+            
+        current_frame = animation[int(self.frame_index)]
+        if self.direction < 0:
+            self.image = pygame.transform.flip(current_frame, True, False)
+        else:
+            self.image = current_frame
+
+    def get_status(self):
+        self.status = 'run' if self.speed > 0 else 'idle'
+
+    def check_edges(self):
+        # Look ahead to see if there is floor
+        look_dist = 20
+        sensor_x = self.hitbox.centerx + (self.direction * look_dist)
+        sensor_y = self.hitbox.bottom + 10
+        
+        has_floor = False
+        for sprite in self.collision_sprites:
+            if sprite.rect.collidepoint(sensor_x, sensor_y):
+                has_floor = True
+                break
+        
+        # Check for walls
+        hit_wall = False
+        wall_sensor_x = self.hitbox.centerx + (self.direction * 20)
+        wall_sensor_y = self.hitbox.centery
+        for sprite in self.collision_sprites:
+            if sprite.rect.collidepoint(wall_sensor_x, wall_sensor_y):
+                hit_wall = True
+                break
+
+        if not has_floor or hit_wall:
+            return True # Should turn
+        return False
+
+    def move(self, dt):
+        if self.check_edges():
+            self.direction *= -1
+
+        self.hitbox.x += self.direction * self.speed * dt
+        self.rect.centerx = self.hitbox.centerx
+
+    def update(self, dt):
+        self.move(dt)
+        self.get_status()
+        self.animate(dt)
+
+    def update(self, dt):
+        self.move(dt)
+        self.get_status()
+        self.animate(dt)
 
 class Trap(pygame.sprite.Sprite):
     def __init__(self, groups, pos, trap_type):
