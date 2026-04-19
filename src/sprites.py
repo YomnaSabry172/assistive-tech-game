@@ -310,7 +310,7 @@ class Spell(pygame.sprite.Sprite):
             else:
                 self.frame_index = 0
         
-        self.image = self.frames[int(self.frame_index)-1]
+        self.image = self.frames[int(self.frame_index)-3]
         if self.direction < 0:
             self.image = pygame.transform.flip(self.image, True, False)
 

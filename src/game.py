@@ -58,7 +58,18 @@ class Game:
             }
         except FileNotFoundError:
             self.tiles = {}
-    
+
+        # Load Sounds
+        try:
+            self.fruit_sound = pygame.mixer.Sound("../assets/soundtracks/driken5482-retro-coin-4-236671.mp3")
+            self.fruit_sound.set_volume(0.6)
+            self.spell_impact_sound = pygame.mixer.Sound("../assets/soundtracks/dragon-studio-epic-spell-impact-478364.mp3")
+            self.spell_impact_sound.set_volume(0.6)
+        except Exception as e:
+            print(f"Error loading game sounds: {e}")
+            self.fruit_sound = None
+            self.spell_impact_sound = None
+
         self.setup_level()
 
     def setup_level(self):
@@ -102,6 +113,8 @@ class Game:
         collided_fruits = pygame.sprite.spritecollide(self.player, self.fruit_sprites, True)
         if collided_fruits:
             self.score += 100 * len(collided_fruits)
+            if self.fruit_sound:
+                self.fruit_sound.play()
 
         # Check Spells hitting hazards
         for spell in self.spell_sprites:
@@ -109,6 +122,8 @@ class Game:
             if hit_hazards:
                 spell.frames = spell.frames_disappear
                 spell.frame_index = 0
+                if self.spell_impact_sound:
+                    self.spell_impact_sound.play()
 
         # Check Spells hitting destructible boxes
         for spell in self.spell_sprites:
