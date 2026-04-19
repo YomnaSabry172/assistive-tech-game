@@ -35,11 +35,28 @@ class GameManager:
         self.game = Game()
         self.running = True
 
+        # Music Assets
+        pygame.mixer.init()
+        self.current_music = None
+        self.music_game = "../assets/soundtracks/mondamusic-retro-arcade-game-music-512837.mp3"
+        self.music_menu = "../assets/soundtracks/samc44-mother-transistion-scene-189070.mp3"
+        self.music_lose = "../assets/soundtracks/floraphonic-classic-game-action-negative-18-224576.mp3"
+
         # Menu Buttons
         button_w, button_h = 400, 80
         self.start_button = pygame.Rect(WINDOW_WIDTH//2 - button_w//2, WINDOW_HEIGHT//2 - 100, button_w, button_h)
         self.controls_button = pygame.Rect(WINDOW_WIDTH//2 - button_w//2, WINDOW_HEIGHT//2 + 20, button_w, button_h)
         self.back_button = pygame.Rect(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 150, 150, 50)
+
+    def play_music(self, path, loops=-1):
+        if self.current_music == path:
+            return
+        try:
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.play(loops)
+            self.current_music = path
+        except Exception as e:
+            print(f"Could not play music {path}: {e}")
 
     def draw_button(self, rect, text, color, hover_color):
         # Check both real mouse and hand cursor
@@ -225,10 +242,13 @@ class GameManager:
 
             # --- State Routing ---
             if self.state == 'menu':
+                self.play_music(self.music_menu)
                 self.draw_menu()
             elif self.state == 'controls':
+                self.play_music(self.music_menu)
                 self.draw_controls()
             elif self.state == 'game':
+                self.play_music(self.music_game)
                 self.cv_controller.process_frame()
                 status = self.game.run(dt, self.cv_controller)
                 
@@ -243,8 +263,10 @@ class GameManager:
                     self.state = 'victory'
             
             elif self.state == 'game_over':
+                self.play_music(self.music_lose, loops=0)
                 self.draw_game_over()
             elif self.state == 'victory':
+                self.play_music(self.music_menu)
                 self.draw_victory()
 
             # Draw Hand Cursor

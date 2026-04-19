@@ -44,6 +44,13 @@ class Player(pygame.sprite.Sprite):
         # Collision
         self.collision_sprites = collision_sprites
 
+        # Loading sound
+        try:
+            self.spell_cast_sound = pygame.mixer.Sound("../assets/soundtracks/freesound_community-magic-strike-5856.mp3")
+            self.spell_cast_sound.set_volume(0.6)
+        except Exception:
+            self.spell_cast_sound = None
+
     def import_character_assets(self):
         """Loads all the different sprite sheets into a dictionary."""
         # Make sure these paths match exactly where your images are saved!
@@ -173,6 +180,8 @@ class Player(pygame.sprite.Sprite):
             Spell((self.groups()[0], self.spell_sprites), self.rect.center, direction, self.collision_sprites)
             self.can_cast = False
             self.last_cast_time = pygame.time.get_ticks()
+            if self.spell_cast_sound:
+                self.spell_cast_sound.play()
 
     def update(self, dt):
         # Handle attack input
