@@ -62,9 +62,8 @@ class Game:
         # Load Sounds
         try:
             self.fruit_sound = pygame.mixer.Sound("../assets/soundtracks/driken5482-retro-coin-4-236671.mp3")
-            self.fruit_sound.set_volume(0.4)
-            self.spell_impact_sound = pygame.mixer.Sound("../assets/soundtracks/dragon-studio-epic-spell-impact-478364.mp3")
-            self.spell_impact_sound.set_volume(0.4)
+            self.fruit_sound.set_volume(0.6)
+            
         except Exception as e:
             print(f"Error loading game sounds: {e}")
             self.fruit_sound = None
