@@ -11,6 +11,23 @@ class GameManager:
         self.display = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption('Ninja Frog Upgrade')
         self.clock = pygame.time.Clock()
+        # Cursors
+        try:
+            self.cursor_out = pygame.image.load("../assets/cursors/out.png").convert_alpha()
+            self.cursor_hover = pygame.image.load("../assets/cursors/hover.png").convert_alpha()
+            self.cursor_click = pygame.image.load("../assets/cursors/click.png").convert_alpha()
+            self.cursor_out = pygame.transform.scale(self.cursor_out, (32, 32))
+            self.cursor_hover = pygame.transform.scale(self.cursor_hover, (32, 32))
+            self.cursor_click = pygame.transform.scale(self.cursor_click, (32, 32))
+        except FileNotFoundError:
+            self.cursor_out = pygame.Surface((20, 20)); self.cursor_out.fill('white')
+            self.cursor_hover = pygame.Surface((20, 20)); self.cursor_hover.fill('yellow')
+            self.cursor_click = pygame.Surface((20, 20)); self.cursor_click.fill('green')
+
+        self.knockback_timer = 0.0
+        self.hand_cursor_pos = pygame.math.Vector2(0, 0)
+        self.cursor_image = self.cursor_out
+        self.cursor_rect = self.cursor_image.get_rect()
         self.font = pygame.font.Font(pygame.font.match_font(UI_FONT), 64)
         self.small_font = pygame.font.Font(pygame.font.match_font(UI_FONT), 32)
         
@@ -22,11 +39,14 @@ class GameManager:
         button_w, button_h = 400, 80
         self.start_button = pygame.Rect(WINDOW_WIDTH//2 - button_w//2, WINDOW_HEIGHT//2 - 100, button_w, button_h)
         self.controls_button = pygame.Rect(WINDOW_WIDTH//2 - button_w//2, WINDOW_HEIGHT//2 + 20, button_w, button_h)
-        self.back_button = pygame.Rect(50, 50, 150, 50)
+        self.back_button = pygame.Rect(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 150, 150, 50)
 
     def draw_button(self, rect, text, color, hover_color):
-        mouse_pos = pygame.mouse.get_pos()
-        if rect.collidepoint(mouse_pos):
+        # Check both real mouse and hand cursor
+        is_hovered = rect.collidepoint(pygame.mouse.get_pos()) or \
+                     (self.state in ['menu', 'controls'] and rect.collidepoint(self.hand_cursor_pos))
+        
+        if is_hovered:
             pygame.draw.rect(self.display, hover_color, rect, border_radius=15)
         else:
             pygame.draw.rect(self.display, color, rect, border_radius=15)
@@ -38,9 +58,15 @@ class GameManager:
         self.display.blit(surf, rect_text)
 
     def draw_menu(self):
-        self.display.fill('#242424')
+        self.display.fill(BG_COLOR)
         
-        title_surf = self.font.render('NINJA FROG REHAB', True, '#00FF7F')
+        # Camera Preview
+        if self.cv_controller and self.cv_controller.surface:
+            pip_surf = pygame.transform.scale(self.cv_controller.surface, (240, 180))
+            self.display.blit(pip_surf, (20, 20))
+            pygame.draw.rect(self.display, 'white', (20, 20, 240, 180), 2)
+
+        title_surf = self.font.render('NINJA FROG REHAB', True, TEXT_COLOR)
         title_rect = title_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//4))
         self.display.blit(title_surf, title_rect)
         
@@ -48,9 +74,15 @@ class GameManager:
         self.draw_button(self.controls_button, 'CONTROLS', '#4682B4', '#5F9EA0')
 
     def draw_controls(self):
-        self.display.fill('#1A1A1A')
+        self.display.fill(BG_COLOR)
         
-        title_surf = self.font.render('GESTURE CONTROLS', True, 'gold')
+        # Camera Preview
+        if self.cv_controller and self.cv_controller.surface:
+            pip_surf = pygame.transform.scale(self.cv_controller.surface, (240, 180))
+            self.display.blit(pip_surf, (20, 20))
+            pygame.draw.rect(self.display, 'white', (20, 20, 240, 180), 2)
+
+        title_surf = self.font.render('Hand Gesture Controls', True, TEXT_COLOR)
         title_rect = title_surf.get_rect(center=(WINDOW_WIDTH//2, 100))
         self.display.blit(title_surf, title_rect)
         
@@ -130,6 +162,41 @@ class GameManager:
         while self.running:
             dt = self.clock.tick(FPS) / 1000.0
             
+            # --- Hand Interaction Logic ---
+            if self.state in ['menu', 'controls']:
+                self.cv_controller.process_frame()
+                self.hand_cursor_pos.x = self.cv_controller.hand_pos.x * WINDOW_WIDTH
+                self.hand_cursor_pos.y = self.cv_controller.hand_pos.y * WINDOW_HEIGHT
+                self.cursor_rect.center = self.hand_cursor_pos
+                
+                # Check hover and click
+                buttons = []
+                if self.state == 'menu': buttons = [self.start_button, self.controls_button]
+                elif self.state == 'controls': buttons = [self.back_button]
+                
+                any_hover = False
+                for btn in buttons:
+                    if btn.collidepoint(self.hand_cursor_pos):
+                        any_hover = True
+                        if self.cv_controller.is_clicking:
+                            self.cursor_image = self.cursor_click
+                            # Trigger Click
+                            if self.state == 'menu':
+                                if btn == self.start_button:
+                                    self.game = Game()
+                                    self.state = 'game'
+                                elif btn == self.controls_button:
+                                    self.state = 'controls'
+                            elif self.state == 'controls':
+                                if btn == self.back_button:
+                                    self.state = 'menu'
+                        else:
+                            self.cursor_image = self.cursor_hover
+                        break
+                
+                if not any_hover:
+                    self.cursor_image = self.cursor_out
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
@@ -180,6 +247,10 @@ class GameManager:
             elif self.state == 'victory':
                 self.draw_victory()
 
+            # Draw Hand Cursor
+            if self.state in ['menu', 'controls']:
+                self.display.blit(self.cursor_image, self.cursor_rect)
+
             pygame.display.flip()
             
         self.cv_controller.release()
@@ -188,4 +259,4 @@ class GameManager:
 
 if __name__ == '__main__':
     game_manager = GameManager()
-    game_manager.run()
+    game_manager.run()

@@ -8,3 +8,5 @@ TILE_SIZE = 48
 UI_FONT = 'freesansbold.ttf' # Default Pygame font
 UI_FONT_SIZE = 36
 TEXT_COLOR = '#EEEEEE'
+BG_COLOR = '#242424'
+CURSOR_SIZE = (32, 32)
