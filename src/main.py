@@ -24,6 +24,29 @@ class GameManager:
             self.cursor_hover = pygame.Surface((20, 20)); self.cursor_hover.fill('yellow')
             self.cursor_click = pygame.Surface((20, 20)); self.cursor_click.fill('green')
 
+        # Gesture Icons
+        self.gesture_icons = {}
+        gesture_files = {
+            "Move Left": ["../assets/handGestures/Thumb-Index.png"],
+            "Move Right": ["../assets/handGestures/Thumb-Pinky.png"],
+            "Jump": ["../assets/handGestures/Open_Palm-removebg-preview.png"],
+            "Attack": ["../assets/handGestures/Knuckle bend.png"],
+            "Select/Click": ["../assets/handGestures/Fist.png"],
+            "jump & move right" : ["../assets/handGestures/Thumb-Ring.png"],
+            "jump & move left" : ["../assets/handGestures/Thumb-Middle.png"],
+            "special barrier spell": ["../assets/handGestures/Fist.png", "../assets/handGestures/Karate Chop.png"]
+        }
+        for action, paths in gesture_files.items():
+            try:
+                
+                imgs = [pygame.image.load(path).convert_alpha() for path in paths]
+                imgs = [pygame.transform.scale(img, (60, 80)) for img in imgs]
+                if action == "special barrier spell" or action == "Attack" or action == "Select/Click":
+                    imgs = [pygame.transform.flip(img, True, False) for img in imgs]
+                self.gesture_icons[action] = imgs
+            except Exception as e:
+                print(f"Error loading {paths}: {e}")
+        
         self.knockback_timer = 0.0
         self.hand_cursor_pos = pygame.math.Vector2(0, 0)
         self.cursor_image = self.cursor_out
@@ -46,7 +69,7 @@ class GameManager:
         button_w, button_h = 400, 80
         self.start_button = pygame.Rect(WINDOW_WIDTH//2 - button_w//2, WINDOW_HEIGHT//2 - 100, button_w, button_h)
         self.controls_button = pygame.Rect(WINDOW_WIDTH//2 - button_w//2, WINDOW_HEIGHT//2 + 20, button_w, button_h)
-        self.back_button = pygame.Rect(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 150, 150, 50)
+        self.back_button = pygame.Rect(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 280, 150, 50)
 
     def play_music(self, path, loops=-1):
         if self.current_music == path:
@@ -92,32 +115,56 @@ class GameManager:
         self.draw_button(self.controls_button, 'CONTROLS', '#4682B4', '#5F9EA0')
 
     def draw_controls(self):
-        self.display.fill(BG_COLOR)
+        self.display.fill('#FAF9F6') # Off-white
         
         # Camera Preview
         if self.cv_controller and self.cv_controller.surface:
             pip_surf = pygame.transform.scale(self.cv_controller.surface, (240, 180))
             self.display.blit(pip_surf, (20, 20))
-            pygame.draw.rect(self.display, 'white', (20, 20, 240, 180), 2)
+            pygame.draw.rect(self.display, '#333333', (20, 20, 240, 180), 2)
 
-        title_surf = self.font.render('Hand Gesture Controls', True, TEXT_COLOR)
+        title_surf = self.font.render('Hand Gesture Controls', True, '#333333')
         title_rect = title_surf.get_rect(center=(WINDOW_WIDTH//2, 100))
         self.display.blit(title_surf, title_rect)
         
         controls = [
-            ("Move Left", "Move hand to the LEFT side of the screen"),
-            ("Move Right", "Move hand to the RIGHT side of the screen"),
-            ("Jump", "Show an OPEN PALM to the camera"),
-            ("Quit", "Press ESC to return to menu/quit")
+            ("Move Left", "Thumb & Index", "Move Left"),
+            ("Move Right", "Thumb & Pinky", "Move Right"),
+            ("Jump", "Open Palm", "Jump"),
+            ("Jump & Right", "Thumb & Ring", "jump & move right"),
+            ("Jump & Left", "Thumb & Middle", "jump & move left"),
+            ("Attack", "Knuckle Bend", "Attack"),
+            ("Barrier", "Fist + Chop", "special barrier spell"),
+            ("Select", "Fist", "Select/Click")
         ]
         
-        start_y = 250
-        for i, (action, gesture) in enumerate(controls):
-            action_surf = self.small_font.render(f"{action}:", True, 'lightblue')
-            gesture_surf = self.small_font.render(gesture, True, 'white')
+        start_y = 220
+        # Two columns layout
+        left_col_x = WINDOW_WIDTH // 8
+        right_col_x = WINDOW_WIDTH // 2 + 50
+        
+        for i, (action_disp, gesture_name, action_key) in enumerate(controls):
+            col = i % 2
+            row = i // 2
             
-            self.display.blit(action_surf, (WINDOW_WIDTH//4, start_y + i * 80))
-            self.display.blit(gesture_surf, (WINDOW_WIDTH//4 + 250, start_y + i * 80))
+            y_pos = start_y + row * 110
+            base_x = right_col_x if col == 1 else left_col_x
+            
+            action_surf = self.small_font.render(f"{action_disp}:", True, '#2C5282')
+            gesture_surf = self.small_font.render(gesture_name, True, '#222222')
+            
+            # Action text
+            self.display.blit(action_surf, (base_x, y_pos))
+            
+            # Icons
+            offsets = 0
+            if action_key in self.gesture_icons:
+                for icon in self.gesture_icons[action_key]:
+                    self.display.blit(icon, (base_x + 230 + offsets, y_pos - 25))
+                    offsets += icon.get_width() + 10
+            
+            # Gesture name
+            self.display.blit(gesture_surf, (base_x + 230 + offsets + 20, y_pos))
             
         self.draw_button(self.back_button, 'BACK', '#8B0000', '#CD5C5C')
 
