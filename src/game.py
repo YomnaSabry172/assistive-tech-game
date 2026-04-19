@@ -80,15 +80,24 @@ class Game:
 
         self.player = Player((self.all_sprites,), (150, 650), self.collision_sprites)
 
-    def check_collisions(self):
+    def check_collisions(self, dt):
         # Check fruit pickup
         collided_fruits = pygame.sprite.spritecollide(self.player, self.fruit_sprites, True)
         if collided_fruits:
             self.score += 100 * len(collided_fruits)
 
         # Check hazards
-        if pygame.sprite.spritecollide(self.player, self.hazard_sprites, False, collided = lambda spr1, spr2: spr1.hitbox.colliderect(spr2.hitbox)):
-            return "death"
+        if pygame.sprite.spritecollide(self.player, self.hazard_sprites, False, collided = lambda spr1, spr2: spr1.hitbox.colliderect(spr2.hitbox)) and (pygame.time.get_ticks() - self.player.last_hit_time >= self.player.hit_cooldown):
+            if self.player.lives > 1:
+                self.player.lives -= 1
+                self.player.status = "hit"
+                self.player.last_hit_time = pygame.time.get_ticks()
+                self.player.animate(dt)
+                print(self.player.lives)
+
+                
+            else:
+                return "death"
 
         # Check Goal
         if pygame.sprite.spritecollide(self.player, self.goal_sprites, False, collided = lambda spr1, spr2: spr1.hitbox.colliderect(spr2.hitbox)):
@@ -129,7 +138,7 @@ class Game:
                 if hasattr(goal, 'unlock'):
                     goal.unlock()
 
-        status = self.check_collisions()
+        status = self.check_collisions(dt)
 
         if status == "death":
             return "game_over"

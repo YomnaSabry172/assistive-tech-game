@@ -11,7 +11,7 @@ class Player(pygame.sprite.Sprite):
         self.animation_speed = 15
         self.status = 'idle'      # The current state of the player
         self.facing_right = True  # Track which way to flip the image
-        
+
         self.image = self.animations[self.status][self.frame_index]
         self.rect = self.image.get_rect(topleft=pos)
         self.hitbox = self.rect.inflate(-10, -30)
@@ -19,6 +19,9 @@ class Player(pygame.sprite.Sprite):
         # --- PHYSICS & MOVEMENT ---
         self.pos = pygame.math.Vector2(self.hitbox.topleft)
         self.direction = pygame.math.Vector2(0, 0)
+        self.lives = 3
+        self.hit_cooldown = 1000
+        self.last_hit_time = 0
         
         self.speed = 300         
         self.gravity = 1200      
