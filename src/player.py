@@ -33,7 +33,7 @@ class Player(pygame.sprite.Sprite):
         
         self.speed = 300         
         self.gravity = 1200      
-        self.jump_power = -500   
+        self.jump_power = -600   
         self.on_ground = False
         
         # Spell Attack

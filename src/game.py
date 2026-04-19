@@ -123,8 +123,6 @@ class Game:
             if hit_hazards:
                 spell.frames = spell.frames_disappear
                 spell.frame_index = 0
-                if self.spell_impact_sound:
-                    self.spell_impact_sound.play()
 
         # Check Spells hitting destructible boxes/barriers
         for spell in self.spell_sprites:

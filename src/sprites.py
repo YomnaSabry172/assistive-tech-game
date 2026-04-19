@@ -157,11 +157,6 @@ class Enemy(pygame.sprite.Sprite):
         self.get_status()
         self.animate(dt)
 
-    def update(self, dt):
-        self.move(dt)
-        self.get_status()
-        self.animate(dt)
-
 class Trap(pygame.sprite.Sprite):
     def __init__(self, groups, pos, trap_type):
         super().__init__(groups)
@@ -344,70 +339,6 @@ class Barrier(pygame.sprite.Sprite):
     def update(self, dt):
         self.animate(dt)
 
-class Barrier(pygame.sprite.Sprite):
-    def __init__(self, groups, pos):
-        super().__init__(groups)
-        self.import_assets()
-        self.status = 'idle'
-        self.frame_index = 0
-        self.animation_speed = 10
-        
-        self.image = self.animations[self.status][self.frame_index]
-        self.rect = self.image.get_rect(topleft=pos)
-        self.hitbox = self.rect.inflate(0, 0)
-        
-        self.health = 1
-        self.is_broken = False
-
-    def import_assets(self):
-        self.animations = {'idle': [], 'hit': [], 'break': []}
-        path = "../assets/Items/Boxes/Box3/"
-        
-        # Idle
-        try:
-            idle_sheet = pygame.image.load(path + "Idle.png").convert_alpha()
-            self.animations['idle'] = [pygame.transform.scale(idle_sheet, (TILE_SIZE, TILE_SIZE))]
-        except: pass
-        
-        # Hit (28x24)
-        try:
-            self.animations['hit'] = import_sprite_sheet(path + "Hit (28x24).png", 28, 24, TILE_SIZE/28)
-        except: pass
-        
-        # Break (28x24)
-        try:
-            self.animations['break'] = import_sprite_sheet(path + "Break.png", 28, 24, TILE_SIZE/28)
-        except: pass
-
-    def hit(self, is_special=False):
-        if is_special and not self.is_broken:
-            self.health -= 1
-            if self.health <= 0:
-                self.is_broken = True
-                self.status = 'break'
-                self.frame_index = 0
-        elif not is_special:
-            # Maybe a small "shiver" or "hit" animation even if it doesn't break?
-            # User didn't ask for it, but it adds polish.
-            self.status = 'hit'
-            self.frame_index = 0
-
-    def animate(self, dt):
-        animation = self.animations[self.status]
-        if not animation: return
-        
-        self.frame_index += self.animation_speed * dt
-        if self.frame_index >= len(animation):
-            if self.status == 'break':
-                self.kill()
-            else:
-                self.status = 'idle'
-                self.frame_index = 0
-        
-        self.image = animation[int(self.frame_index) % len(animation)]
-
-    def update(self, dt):
-        self.animate(dt)
 
 class Spell(pygame.sprite.Sprite):
     def __init__(self, groups, pos, direction, collision_sprites, is_special=False, target=None):
