@@ -1,9 +1,11 @@
 import pygame
 from settings import *
+from sprites import Spell
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, groups, pos, collision_sprites):
+    def __init__(self, groups, pos, collision_sprites, spell_sprites):
         super().__init__(groups)
+        self.spell_sprites = spell_sprites
         
         # --- ANIMATION SETUP ---
         self.import_character_assets()
@@ -33,9 +35,11 @@ class Player(pygame.sprite.Sprite):
         self.jump_power = -500   
         self.on_ground = False
         
-        # CV Inputs
-        self.cv_direction_x = 0
-        self.cv_jump = False
+        # Spell Attack
+        self.can_cast = True
+        self.cast_cooldown = 1000 # 1 second
+        self.last_cast_time = 0
+        self.cv_attack = False
         
         # Collision
         self.collision_sprites = collision_sprites
@@ -162,7 +166,24 @@ class Player(pygame.sprite.Sprite):
         self.knockback_direction = pygame.math.Vector2(direction_x, -0.5).normalize()
         self.knockback_timer = self.knockback_duration
 
+    def cast_spell(self):
+        if self.can_cast:
+            direction = 1 if self.facing_right else -1
+            # Spawn spell at player center
+            Spell((self.groups()[0], self.spell_sprites), self.rect.center, direction, self.collision_sprites)
+            self.can_cast = False
+            self.last_cast_time = pygame.time.get_ticks()
+
     def update(self, dt):
+        # Handle attack input
+        if self.cv_attack and self.can_cast:
+            self.cast_spell()
+            
+        # Cooldown logic
+        if not self.can_cast:
+            if pygame.time.get_ticks() - self.last_cast_time >= self.cast_cooldown:
+                self.can_cast = True
+
         if self.knockback_timer > 0:
             self.pos += self.knockback_direction * self.speed * 1.5 * dt
             self.knockback_timer -= dt

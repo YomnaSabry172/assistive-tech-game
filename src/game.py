@@ -26,6 +26,7 @@ class Game:
         self.fruit_sprites = pygame.sprite.Group()
         self.hazard_sprites = pygame.sprite.Group()
         self.goal_sprites = pygame.sprite.Group()
+        self.spell_sprites = pygame.sprite.Group()
 
         # Game Stats
         self.score = 0
@@ -50,7 +51,9 @@ class Game:
                 'P': get_tile(terrain_sheet, 192, 16, 16, 16, scale_factor),
                 'Y': get_tile(terrain_sheet, 192, 112, 16, 16, scale_factor),
                 'O': get_tile(terrain_sheet, 192, 144, 16, 16, scale_factor),
-                '-': get_tile(terrain_sheet, 304, 0, 16, 16, scale_factor)
+                '-': get_tile(terrain_sheet, 304, 0, 16, 16, scale_factor),
+                'f': get_tile(terrain_sheet, 272, 144, 16, 16, scale_factor),
+                'r': get_tile(terrain_sheet, 272, 96, 16, 16, scale_factor)
             }
         except FileNotFoundError:
             self.tiles = {}
@@ -78,7 +81,7 @@ class Game:
                 elif char == 'E':
                     Goal((self.all_sprites, self.goal_sprites), (x, y))
 
-        self.player = Player((self.all_sprites,), (150, 650), self.collision_sprites)
+        self.player = Player((self.all_sprites,), (150, 650), self.collision_sprites, self.spell_sprites)
 
     def check_collisions(self, dt):
         # Check fruit pickup
@@ -86,7 +89,15 @@ class Game:
         if collided_fruits:
             self.score += 100 * len(collided_fruits)
 
-        # Check hazards
+        # Check Spells hitting hazards
+        for spell in self.spell_sprites:
+            hit_hazards = pygame.sprite.spritecollide(spell, self.hazard_sprites, True)
+            if hit_hazards:
+                spell.status = 'disappear'
+                spell.frames = spell.frames_disappear
+                spell.frame_index = 0
+
+        # Check hazards hitting player
         colliding_hazards = pygame.sprite.spritecollide(self.player, self.hazard_sprites, False, collided = lambda spr1, spr2: spr1.hitbox.colliderect(spr2.hitbox))
         if colliding_hazards and (pygame.time.get_ticks() - self.player.last_hit_time >= self.player.hit_cooldown):
             # Get the first hazard to determine knockback direction
@@ -111,7 +122,7 @@ class Game:
         return "alive"
 
     def draw_ui(self, cv_controller=None):
-        score_surf = self.font.render(f'SCORE: {self.score} | LEVEL: {self.level_index + 1}', True, TEXT_COLOR)
+        score_surf = self.font.render(f'SCORE: {self.score} | LEVEL: {self.level_index + 1} | LIVES: {self.player.lives}', True, TEXT_COLOR)
         score_rect = score_surf.get_rect(topleft=(30, 20))
         self.display_surface.blit(score_surf, score_rect)
         
@@ -131,6 +142,7 @@ class Game:
         if cv_controller:
             self.player.cv_direction_x = cv_controller.direction_x
             self.player.cv_jump = cv_controller.jump
+            self.player.cv_attack = cv_controller.attack
             
         self.all_sprites.update(dt)
         

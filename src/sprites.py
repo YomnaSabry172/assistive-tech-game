@@ -139,3 +139,56 @@ class Goal(pygame.sprite.Sprite):
         if self.locked:
             self.image = self.unlocked_image
             self.locked = False
+
+class Spell(pygame.sprite.Sprite):
+    def __init__(self, groups, pos, direction, collision_sprites):
+        super().__init__(groups)
+        self.direction = direction
+        self.speed = 500
+        self.collision_sprites = collision_sprites
+        
+        # Animations
+        self.frames_appear = import_sprite_sheet("../assets/Main Characters/Appearing (96x96).png", 96, 96, 0.5)
+        self.frames_disappear = import_sprite_sheet("../assets/Main Characters/Desappearing (96x96).png", 96, 96, 0.5)
+        
+        self.status = 'appear'
+        self.frames = self.frames_appear
+        self.frame_index = 0
+        self.animation_speed = 20
+        
+        self.image = self.frames[self.frame_index]
+        self.rect = self.image.get_rect(center=pos)
+        self.hitbox = self.rect.inflate(-10, -10)
+
+    def animate(self, dt):
+        self.frame_index += self.animation_speed * dt
+        if self.frame_index >= len(self.frames):
+            if self.status == 'appear':
+                self.status = 'moving'
+                # For moving, just loop the last few frames or use a generic one
+                # Since we don't have a loop, let's just stick to appearing frames for now
+                self.frame_index = len(self.frames) - 1 
+            elif self.status == 'disappear':
+                self.kill()
+            else:
+                self.frame_index = 0
+        
+        self.image = self.frames[int(self.frame_index)-1]
+        if self.direction < 0:
+            self.image = pygame.transform.flip(self.image, True, False)
+
+    def move(self, dt):
+        if self.status == 'moving' or self.status == 'appear':
+            self.rect.x += self.direction * self.speed * dt
+            
+            # Simple collision with walls (destruction)
+            for sprite in self.collision_sprites:
+                if self.rect.colliderect(sprite.rect):
+                    self.status = 'disappear'
+                    self.frames = self.frames_disappear
+                    self.frame_index = 0
+                    break
+
+    def update(self, dt):
+        self.move(dt)
+        self.animate(dt)

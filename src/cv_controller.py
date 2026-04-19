@@ -31,6 +31,7 @@ class CVController:
         self.jump = False
         self.hand_pos = pygame.math.Vector2(0.5, 0.5) # Normalized 0-1
         self.is_clicking = False
+        self.attack = False
         self.landmarks = None
         self.gesture_label = "No Hand"
         
@@ -70,6 +71,7 @@ class CVController:
         self.direction_x = 0
         self.jump = False
         self.is_clicking = False
+        self.attack = False
 
         if results.multi_hand_landmarks:
             self.stats['active_time'] += dt
@@ -83,8 +85,11 @@ class CVController:
             # 2. Detect Gesture
             self.gesture_label = self.detector.detect(landmarks)
             
-            # 3. Detect Clicking (Open Palm for now, or Thumb-Index)
+            # 3. Detect Clicking (Fist)
             self.is_clicking = (self.gesture_label == "Fist")
+            
+            # 3.1 Detect Attack (Knuckle Bend)
+            self.attack = (self.gesture_label == "Knuckle Bend")
 
             # 4. Map Gesture to vertical Jump
             is_jumping_gesture = (self.gesture_label == "Open Palm")
