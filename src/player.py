@@ -23,6 +23,11 @@ class Player(pygame.sprite.Sprite):
         self.hit_cooldown = 1000
         self.last_hit_time = 0
         
+        # Knockback
+        self.knockback_direction = pygame.math.Vector2(0, 0)
+        self.knockback_timer = 0
+        self.knockback_duration = 0.2
+        
         self.speed = 300         
         self.gravity = 1200      
         self.jump_power = -500   
@@ -86,6 +91,10 @@ class Player(pygame.sprite.Sprite):
 
     def get_status(self):
         """Determines what state the frog is in based on its movement."""
+        if self.knockback_timer > 0:
+            self.status = 'hit'
+            return
+
         if self.direction.y < 0:
             self.status = 'jump'
         elif self.direction.y > 1: # > 1 means falling (accounting for tiny gravity shifts)
@@ -107,6 +116,16 @@ class Player(pygame.sprite.Sprite):
             
         current_frame = animation[int(self.frame_index)]
         
+        # Flicker logic for invincibility
+        if pygame.time.get_ticks() - self.last_hit_time < self.hit_cooldown and self.status == 'hit':
+            # Toggle alpha/visibility every 100ms
+            if (pygame.time.get_ticks() // 100) % 2:
+                self.image.set_alpha(0)
+            else:
+                self.image.set_alpha(255)
+        else:
+            self.image.set_alpha(255)
+
         # Flip the image if facing left
         if self.facing_right:
             self.image = current_frame
@@ -138,14 +157,31 @@ class Player(pygame.sprite.Sprite):
                     self.hitbox.top = sprite.rect.bottom
                     self.pos.y = self.hitbox.y
                     self.direction.y = 0
+
+    def apply_knockback(self, direction_x):
+        self.knockback_direction = pygame.math.Vector2(direction_x, -0.5).normalize()
+        self.knockback_timer = self.knockback_duration
+
     def update(self, dt):
-        self.get_input()
+        if self.knockback_timer > 0:
+            self.pos += self.knockback_direction * self.speed * 1.5 * dt
+            self.knockback_timer -= dt
+            
+            # Apply collision while being knocked back
+            self.hitbox.x = round(self.pos.x)
+            self.horizontal_collisions()
+            self.hitbox.y = round(self.pos.y)
+            self.vertical_collisions()
+        else:
+            self.get_input()
+            
         self.direction.y += self.gravity * dt
 
         # X Movement
-        self.pos.x += self.direction.x * self.speed * dt
-        self.hitbox.x = round(self.pos.x) # Move hitbox
-        self.horizontal_collisions()
+        if self.knockback_timer <= 0:
+            self.pos.x += self.direction.x * self.speed * dt
+            self.hitbox.x = round(self.pos.x) # Move hitbox
+            self.horizontal_collisions()
 
         # Y Movement
         self.pos.y += self.direction.y * dt

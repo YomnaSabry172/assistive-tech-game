@@ -87,15 +87,17 @@ class Game:
             self.score += 100 * len(collided_fruits)
 
         # Check hazards
-        if pygame.sprite.spritecollide(self.player, self.hazard_sprites, False, collided = lambda spr1, spr2: spr1.hitbox.colliderect(spr2.hitbox)) and (pygame.time.get_ticks() - self.player.last_hit_time >= self.player.hit_cooldown):
+        colliding_hazards = pygame.sprite.spritecollide(self.player, self.hazard_sprites, False, collided = lambda spr1, spr2: spr1.hitbox.colliderect(spr2.hitbox))
+        if colliding_hazards and (pygame.time.get_ticks() - self.player.last_hit_time >= self.player.hit_cooldown):
+            # Get the first hazard to determine knockback direction
+            hazard = colliding_hazards[0]
+            kb_dir = -1 if self.player.hitbox.centerx < hazard.hitbox.centerx else 1
+            self.player.apply_knockback(kb_dir)
+
             if self.player.lives > 1:
                 self.player.lives -= 1
-                self.player.status = "hit"
                 self.player.last_hit_time = pygame.time.get_ticks()
-                self.player.animate(dt)
-                print(self.player.lives)
-
-                
+                # print(f"Lives remaining: {self.player.lives}")
             else:
                 return "death"
 
