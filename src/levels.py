@@ -17,7 +17,7 @@ LEVELS = [
         "PP.................M...OOO..........*M*..........OO...............PP",
         "PP.........@..P...---.OOOOO.........---...........OO...........E..PP",
         "PP.---.......P.P......OOOOO.......................OOO......PPPPPPP",
-        "PP..........P...P.................................OOOO.....PPPPPPP",
+        "PP..........P...P.....#...........................OOOO.....PPPPPPP",
         "PPddddddddddPPPPPPPPdddddddddddddddddddddddddddddddddddddddPPPPPPP",
         "PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP"
     ],

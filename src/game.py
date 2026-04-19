@@ -1,7 +1,7 @@
 # game.py
 import pygame
 from settings import *
-from sprites import CameraGroup, Tile, Fruit, Enemy, Trap, Goal
+from sprites import CameraGroup, Tile, Fruit, Enemy, Trap, Goal, Box
 from player import Player
 from levels import LEVELS
 
@@ -27,6 +27,7 @@ class Game:
         self.hazard_sprites = pygame.sprite.Group()
         self.goal_sprites = pygame.sprite.Group()
         self.spell_sprites = pygame.sprite.Group()
+        self.destructible_sprites = pygame.sprite.Group()
 
         # Game Stats
         self.score = 0
@@ -88,6 +89,8 @@ class Game:
                     Trap((self.all_sprites, self.hazard_sprites), (x, y), 'ball')
                 elif char == 'E':
                     Goal((self.all_sprites, self.goal_sprites), (x, y))
+                elif char == '#': # Destructible Box
+                    Box((self.all_sprites, self.collision_sprites, self.destructible_sprites), (x, y))
 
         # If no 'P' was in map, set a default
         if self.player.pos == pygame.math.Vector2(0, 0):
@@ -104,9 +107,19 @@ class Game:
         for spell in self.spell_sprites:
             hit_hazards = pygame.sprite.spritecollide(spell, self.hazard_sprites, True)
             if hit_hazards:
-                spell.status = 'disappear'
                 spell.frames = spell.frames_disappear
                 spell.frame_index = 0
+
+        # Check Spells hitting destructible boxes
+        for spell in self.spell_sprites:
+            if spell.active:
+                hit_boxes = pygame.sprite.spritecollide(spell, self.destructible_sprites, False)
+                for box in hit_boxes:
+                    box.hit()
+                    spell.active = False
+                    spell.status = 'disappear'
+                    spell.frames = spell.frames_disappear
+                    spell.frame_index = 0
 
         # Check hazards hitting player
         colliding_hazards = pygame.sprite.spritecollide(self.player, self.hazard_sprites, False, collided = lambda spr1, spr2: spr1.hitbox.colliderect(spr2.hitbox))
