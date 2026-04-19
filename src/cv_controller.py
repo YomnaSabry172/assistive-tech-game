@@ -32,8 +32,15 @@ class CVController:
         self.hand_pos = pygame.math.Vector2(0.5, 0.5) # Normalized 0-1
         self.is_clicking = False
         self.attack = False
+        self.special_attack = False
         self.landmarks = None
         self.gesture_label = "No Hand"
+        
+        # Combo System
+        self.combo_buffer: list[str] = []
+        self.last_unique_gesture: str | None = None
+        self.combo_timeout: float = 1.5 # seconds
+        self.combo_timer: float = 0.0
         
         # Stats
         self.stats = {
@@ -116,6 +123,23 @@ class CVController:
             elif (self.gesture_label == "Thumb-Index"):
                 self.direction_x = -1
                 self.stats['left_moves'] += 1
+
+            # 6. Combo Logic (Fist -> Karate Chop)
+            if self.gesture_label != self.last_unique_gesture and self.gesture_label != "Unknown":
+                # New gesture detected
+                if time.time() - self.combo_timer > self.combo_timeout:
+                    self.combo_buffer = [] # Reset on timeout
+                
+                self.combo_buffer.append(self.gesture_label)
+                self.combo_timer = time.time()
+                self.last_unique_gesture = self.gesture_label
+                
+                # Check for combo
+                if len(self.combo_buffer) >= 2:
+                    last_two = self.combo_buffer[-2:]
+                    if last_two == ["Fist", "Karate Chop"]:
+                        self.special_attack = True
+                        self.combo_buffer = [] # Clear after trigger
 
             # Debug Overlay
             color = (0, 255, 0) if self.gesture_label in USED_GESTURES else (0, 0, 255)

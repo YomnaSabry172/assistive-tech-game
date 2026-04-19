@@ -1,7 +1,7 @@
 # game.py
 import pygame
 from settings import *
-from sprites import CameraGroup, Tile, Fruit, Enemy, Trap, Goal, Box
+from sprites import CameraGroup, Tile, Fruit, Enemy, Trap, Goal, Box, Barrier
 from player import Player
 from levels import LEVELS
 
@@ -62,9 +62,9 @@ class Game:
         # Load Sounds
         try:
             self.fruit_sound = pygame.mixer.Sound("../assets/soundtracks/driken5482-retro-coin-4-236671.mp3")
-            self.fruit_sound.set_volume(0.6)
+            self.fruit_sound.set_volume(0.4)
             self.spell_impact_sound = pygame.mixer.Sound("../assets/soundtracks/dragon-studio-epic-spell-impact-478364.mp3")
-            self.spell_impact_sound.set_volume(0.6)
+            self.spell_impact_sound.set_volume(0.4)
         except Exception as e:
             print(f"Error loading game sounds: {e}")
             self.fruit_sound = None
@@ -78,7 +78,7 @@ class Game:
         # Initialize player first so enemies can reference it
         # We find 'S' or just default to a position if not found
         # Actually, let's just initialize it at the top with a temporary pos
-        self.player = Player((self.all_sprites,), (0, 0), self.collision_sprites, self.spell_sprites)
+        self.player = Player((self.all_sprites,), (0, 0), self.collision_sprites, self.spell_sprites, self.destructible_sprites)
 
         for row_index, row in enumerate(level_map):
             for col_index, char in enumerate(row):
@@ -102,6 +102,8 @@ class Game:
                     Goal((self.all_sprites, self.goal_sprites), (x, y))
                 elif char == '#': # Destructible Box
                     Box((self.all_sprites, self.collision_sprites, self.destructible_sprites), (x, y))
+                elif char == '|': # Magic Barrier
+                    Barrier((self.all_sprites, self.collision_sprites, self.destructible_sprites), (x, y))
 
         # If no 'P' was in map, set a default
         if self.player.pos == pygame.math.Vector2(0, 0):
@@ -125,16 +127,25 @@ class Game:
                 if self.spell_impact_sound:
                     self.spell_impact_sound.play()
 
-        # Check Spells hitting destructible boxes
+        # Check Spells hitting destructible boxes/barriers
         for spell in self.spell_sprites:
             if spell.active:
-                hit_boxes = pygame.sprite.spritecollide(spell, self.destructible_sprites, False)
-                for box in hit_boxes:
-                    box.hit()
-                    spell.active = False
-                    spell.status = 'disappear'
-                    spell.frames = spell.frames_disappear
-                    spell.frame_index = 0
+                hit_destructibles = pygame.sprite.spritecollide(spell, self.destructible_sprites, False)
+                for item in hit_destructibles:
+                    if isinstance(item, Barrier):
+                        if spell.is_special:
+                            item.hit(is_special=True)
+                            spell.active = False
+                            spell.status = 'disappear'
+                            spell.frames = spell.frames_disappear
+                            spell.frame_index = 0
+                        # Normal spells don't hurt barriers
+                    else:
+                        item.hit()
+                        spell.active = False
+                        spell.status = 'disappear'
+                        spell.frames = spell.frames_disappear
+                        spell.frame_index = 0
 
         # Check hazards hitting player
         colliding_hazards = pygame.sprite.spritecollide(self.player, self.hazard_sprites, False, collided = lambda spr1, spr2: spr1.hitbox.colliderect(spr2.hitbox))
@@ -182,6 +193,10 @@ class Game:
             self.player.cv_direction_x = cv_controller.direction_x
             self.player.cv_jump = cv_controller.jump
             self.player.cv_attack = cv_controller.attack
+            self.player.cv_special_attack = cv_controller.special_attack
+            
+            # Reset one-shot flag
+            cv_controller.special_attack = False
             
         self.all_sprites.update(dt)
         

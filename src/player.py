@@ -1,10 +1,11 @@
 import pygame
 from settings import *
-from sprites import Spell
+from sprites import Spell, Barrier
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, groups, pos, collision_sprites, spell_sprites):
+    def __init__(self, groups, pos, collision_sprites, spell_sprites, destructible_sprites):
         super().__init__(groups)
+        self.destructible_sprites = destructible_sprites
         self.spell_sprites = spell_sprites
         
         # --- ANIMATION SETUP ---
@@ -40,6 +41,9 @@ class Player(pygame.sprite.Sprite):
         self.cast_cooldown = 1000 # 1 second
         self.last_cast_time = 0
         self.cv_attack = False
+        self.cv_special_attack = False
+        self.cv_direction_x = 0
+        self.cv_jump = False
         
         # Collision
         self.collision_sprites = collision_sprites
@@ -47,7 +51,7 @@ class Player(pygame.sprite.Sprite):
         # Loading sound
         try:
             self.spell_cast_sound = pygame.mixer.Sound("../assets/soundtracks/freesound_community-magic-strike-5856.mp3")
-            self.spell_cast_sound.set_volume(0.6)
+            self.spell_cast_sound.set_volume(0.4)
         except Exception:
             self.spell_cast_sound = None
 
@@ -173,11 +177,25 @@ class Player(pygame.sprite.Sprite):
         self.knockback_direction = pygame.math.Vector2(direction_x, -0.5).normalize()
         self.knockback_timer = self.knockback_duration
 
-    def cast_spell(self):
+    def cast_spell(self, is_special=False):
         if self.can_cast:
             direction = 1 if self.facing_right else -1
+            target = None
+            
+            if is_special:
+                # Find nearest Barrier
+                nearest_barrier = None
+                min_dist = float('inf')
+                for sprite in self.destructible_sprites:
+                    if isinstance(sprite, Barrier) and sprite.alive():
+                        dist = pygame.math.Vector2(self.rect.center).distance_to(sprite.rect.center)
+                        if dist < min_dist and dist <= SPECIAL_SPELL_RANGE:
+                            min_dist = dist
+                            nearest_barrier = sprite
+                target = nearest_barrier
+
             # Spawn spell at player center
-            Spell((self.groups()[0], self.spell_sprites), self.rect.center, direction, self.collision_sprites)
+            Spell((self.groups()[0], self.spell_sprites), self.rect.center, direction, self.collision_sprites, is_special, target)
             self.can_cast = False
             self.last_cast_time = pygame.time.get_ticks()
             if self.spell_cast_sound:
@@ -185,8 +203,11 @@ class Player(pygame.sprite.Sprite):
 
     def update(self, dt):
         # Handle attack input
-        if self.cv_attack and self.can_cast:
-            self.cast_spell()
+        if self.cv_special_attack and self.can_cast:
+            self.cast_spell(is_special=True)
+            self.cv_special_attack = False # Consume special attack
+        elif self.cv_attack and self.can_cast:
+            self.cast_spell(is_special=False)
             
         # Cooldown logic
         if not self.can_cast:

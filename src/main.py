@@ -54,6 +54,7 @@ class GameManager:
         try:
             pygame.mixer.music.load(path)
             pygame.mixer.music.play(loops)
+            pygame.mixer.music.set_volume(0.1)
             self.current_music = path
         except Exception as e:
             print(f"Could not play music {path}: {e}")
