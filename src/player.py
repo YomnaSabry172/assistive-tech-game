@@ -52,6 +52,8 @@ class Player(pygame.sprite.Sprite):
         try:
             self.spell_cast_sound = pygame.mixer.Sound("../assets/soundtracks/freesound_community-magic-strike-5856.mp3")
             self.spell_cast_sound.set_volume(0.4)
+            self.damage_sound = pygame.mixer.Sound("../assets/soundtracks/damage.mp3")
+            self.damage_sound.set_volume(0.4)
         except Exception:
             self.spell_cast_sound = None
 

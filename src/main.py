@@ -71,6 +71,15 @@ class GameManager:
         self.controls_button = pygame.Rect(WINDOW_WIDTH//2 - button_w//2, WINDOW_HEIGHT//2 + 20, button_w, button_h)
         self.back_button = pygame.Rect(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 280, 150, 50)
 
+        try:
+            self.sound_pass = pygame.mixer.Sound("../assets/soundtracks/levelup.mp3")
+            self.sound_win = pygame.mixer.Sound("../assets/soundtracks/win.mp3") 
+            self.sound_game_over = pygame.mixer.Sound("../assets/soundtracks/lose.mp3")
+        except Exception:
+            self.sound_pass = None
+            self.sound_win = None
+            self.sound_game_over = None
+
     def play_music(self, path, loops=-1):
         if self.current_music == path:
             return
@@ -168,6 +177,46 @@ class GameManager:
             
         self.draw_button(self.back_button, 'BACK', '#8B0000', '#CD5C5C')
 
+    def draw_rehab_stats(self, y_start):
+        stats = self.cv_controller.stats
+        stats_font = pygame.font.Font(pygame.font.match_font(UI_FONT), 24)
+        
+        title_surf = self.small_font.render('--- Rehab Session Statistics ---', True, 'gold')
+        title_rect = title_surf.get_rect(center=(WINDOW_WIDTH//2, y_start))
+        self.display.blit(title_surf, title_rect)
+        
+        # General stats
+        gen_texts = [
+            f"Active Hand Tracking Time: {stats.get('active_time', 0):.1f}s",
+            f"Max Range of Motion (Normalized): {stats.get('range_of_motion_max', 0):.2f}",
+        ]
+        
+        for i, text in enumerate(gen_texts):
+            surf = stats_font.render(text, True, 'lightblue')
+            rect = surf.get_rect(center=(WINDOW_WIDTH//2, y_start + 40 + i * 30))
+            self.display.blit(surf, rect)
+            
+        # Per-gesture stats
+        gesture_start_y = y_start + 120
+        left_x = WINDOW_WIDTH // 3
+        right_x = 2 * (WINDOW_WIDTH // 3)
+        
+        if 'gesture_counts' in stats:
+            items = list(stats['gesture_counts'].items())
+            for i, (gesture, count) in enumerate(items):
+                time_held = stats.get('gesture_time', {}).get(gesture, 0.0)
+                text = f"{gesture}: {count}x  |  {time_held:.1f}s"
+                surf = stats_font.render(text, True, 'white')
+                
+                col = i % 2
+                row = i // 2
+                
+                x = right_x if col == 1 else left_x
+                y = gesture_start_y + row * 30
+                
+                rect = surf.get_rect(center=(x, y))
+                self.display.blit(surf, rect)
+
     def draw_game_over(self):
         # Dim the screen
         overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -177,32 +226,19 @@ class GameManager:
 
         # Text Setup
         go_surf = self.font.render('GAME OVER', True, 'red')
-        go_rect = go_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 - 50))
+        go_rect = go_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//4))
         
         rest_surf = self.small_font.render('Press R to Restart or ESC to Menu', True, 'white')
-        rest_rect = rest_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 50))
+        rest_rect = rest_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//4 + 50))
 
         score_surf = self.small_font.render(f'Final Score: {self.game.score}', True, 'yellow')
-        score_rect = score_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 100))
+        score_rect = score_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//4 + 100))
 
         self.display.blit(go_surf, go_rect)
         self.display.blit(rest_surf, rest_rect)
         self.display.blit(score_surf, score_rect)
         
-        stats = self.cv_controller.stats
-        stats_font = pygame.font.Font(pygame.font.match_font(UI_FONT), 24)
-        
-        stat_texts = [
-            f"Active Time: {stats['active_time']:.1f}s",
-            f"Total Jumps: {stats['jumps']}",
-            f"Left Moves: {stats['left_moves']}  |  Right Moves: {stats['right_moves']}"
-        ]
-        
-        base_y = WINDOW_HEIGHT//2 + 170
-        for i, text in enumerate(stat_texts):
-            surf = stats_font.render(text, True, 'lightblue')
-            rect = surf.get_rect(center=(WINDOW_WIDTH//2, base_y + i * 35))
-            self.display.blit(surf, rect)
+        self.draw_rehab_stats(WINDOW_HEIGHT//4 + 180)
 
     def draw_victory(self):
         overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -211,17 +247,64 @@ class GameManager:
         self.display.blit(overlay, (0, 0))
 
         v_surf = self.font.render('VICTORY!', True, 'gold')
-        v_rect = v_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 - 50))
+        v_rect = v_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//4))
         
         score_surf = self.small_font.render(f'Total Score: {self.game.score}', True, 'yellow')
-        score_rect = score_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 50))
+        score_rect = score_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//4 + 50))
 
         rest_surf = self.small_font.render('Press R to Play Again or ESC to Menu', True, 'white')
-        rest_rect = rest_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 100))
+        rest_rect = rest_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//4 + 100))
 
         self.display.blit(v_surf, v_rect)
         self.display.blit(score_surf, score_rect)
         self.display.blit(rest_surf, rest_rect)
+        
+        self.draw_rehab_stats(WINDOW_HEIGHT//4 + 180)
+
+    def export_stats(self):
+        import json
+        from datetime import datetime
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        
+        now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        json_filename = f"patient_session_stats.json"
+        img_filename = f"patient_timeline.png"
+        
+        with open(json_filename, 'w') as f:
+            json.dump(self.cv_controller.stats, f, indent=4)
+        print(f"Stats exported to {json_filename}")
+        
+        timeline = self.cv_controller.stats.get('timeline', [])
+        if timeline:
+            times = [event['time'] for event in timeline]
+            gestures = [event['gesture'] for event in timeline]
+            
+            plt.figure(figsize=(10, 6))
+            plt.scatter(times, gestures, color='#2C5282', alpha=0.8, s=100)
+            plt.plot(times, gestures, color='gray', alpha=0.3, linestyle='dashdot')
+            
+            plt.title(f'Patient Rehab Session ({now})\nGesture Occurrence Timeline', fontsize=14, fontweight='bold')
+            plt.xlabel('Time Elapsed (seconds)', fontsize=12)
+            plt.ylabel('Detected Gesture', fontsize=12)
+            plt.grid(True, linestyle='--', alpha=0.7)
+            plt.tight_layout()
+            
+            plt.savefig(img_filename)
+            plt.close()
+            print(f"Timeline visualization exported to {img_filename}")
+
+    def draw_level_transition(self):
+        self.display.fill(BG_COLOR)
+        trans_surf = self.font.render(f'LEVEL PASSED!', True, 'gold')
+        trans_rect = trans_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 - 50))
+        self.display.blit(trans_surf, trans_rect)
+        
+        time_left = 3 - (pygame.time.get_ticks() - getattr(self, 'transition_start', pygame.time.get_ticks())) // 1000
+        time_surf = self.small_font.render(f'Starting next level in {max(0, time_left)}...', True, 'white')
+        time_rect = time_surf.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT//2 + 50))
+        self.display.blit(time_surf, time_rect)
 
     def run(self):
         while self.running:
@@ -302,14 +385,28 @@ class GameManager:
                 
                 if status == "game_over":
                     self.state = 'game_over'
+                    self.export_stats()
+                    if hasattr(self, 'sound_game_over') and self.sound_game_over:
+                        self.sound_game_over.play()
                 elif status == "next_level":
-                    # Transition to next level
+                    self.state = 'level_transition'
+                    self.transition_start = pygame.time.get_ticks()
+                    if hasattr(self, 'sound_pass') and self.sound_pass:
+                        self.sound_pass.play()
+                elif status == "victory":
+                    self.state = 'victory'
+                    self.export_stats()
+                    if hasattr(self, 'sound_win') and self.sound_win:
+                        self.sound_win.play()
+            
+            elif self.state == 'level_transition':
+                self.draw_level_transition()
+                if pygame.time.get_ticks() - self.transition_start >= 3000:
                     new_score = self.game.score
                     self.game = Game(self.game.level_index + 1)
                     self.game.score = new_score
-                elif status == "victory":
-                    self.state = 'victory'
-            
+                    self.state = 'game'
+
             elif self.state == 'game_over':
                 self.play_music(self.music_lose, loops=0)
                 self.draw_game_over()

@@ -48,8 +48,13 @@ class CVController:
             'max_openness': 0.0,
             'active_time': 0.0,
             'left_moves': 0,
-            'right_moves': 0
+            'right_moves': 0,
+            'range_of_motion_max': 0.0,
+            'gesture_counts': {},
+            'gesture_time': {},
+            'timeline': []
         }
+        self.last_logged_gesture = None
         
         # State
         self.surface = None
@@ -92,6 +97,32 @@ class CVController:
             # 2. Detect Gesture
             self.gesture_label = self.detector.detect(landmarks)
             
+            # --- MEDICAL / REHAB TRACKING STATS ---
+            if self.gesture_label != "Unknown" and self.gesture_label != "No Hand":
+                # Time tracking
+                if self.gesture_label not in self.stats['gesture_time']:
+                    self.stats['gesture_time'][self.gesture_label] = 0.0
+                self.stats['gesture_time'][self.gesture_label] += dt
+                
+                # Hand openness (Range of motion surrogate)
+                thumb_tip = np.array([landmarks[4].x, landmarks[4].y, landmarks[4].z])
+                pinky_tip = np.array([landmarks[20].x, landmarks[20].y, landmarks[20].z])
+                dist = np.linalg.norm(thumb_tip - pinky_tip)
+                if dist > self.stats['range_of_motion_max']:
+                    self.stats['range_of_motion_max'] = float(dist)
+
+                # Event/Count tracking edge detection
+                if self.gesture_label != self.last_logged_gesture:
+                    if self.gesture_label not in self.stats['gesture_counts']:
+                        self.stats['gesture_counts'][self.gesture_label] = 0
+                    self.stats['gesture_counts'][self.gesture_label] += 1
+                    
+                    self.stats['timeline'].append({
+                        "time": round(self.stats['active_time'], 2),
+                        "gesture": self.gesture_label
+                    })
+                    self.last_logged_gesture = self.gesture_label
+
             # 3. Detect Clicking (Fist)
             self.is_clicking = (self.gesture_label == "Fist")
             

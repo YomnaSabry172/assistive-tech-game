@@ -31,6 +31,8 @@ class Game:
 
         # Game Stats
         self.score = 0
+        self.notification_msg = ""
+        self.notification_timer = 0
         
         # Load and slice the terrain sprite sheet
         try:
@@ -123,6 +125,7 @@ class Game:
             if hit_hazards:
                 spell.frames = spell.frames_disappear
                 spell.frame_index = 0
+                
 
         # Check Spells hitting destructible boxes/barriers
         for spell in self.spell_sprites:
@@ -154,8 +157,9 @@ class Game:
 
             if self.player.lives > 1:
                 self.player.lives -= 1
+                self.player.damage_sound.play() if self.player.damage_sound else None
                 self.player.last_hit_time = pygame.time.get_ticks()
-                # print(f"Lives remaining: {self.player.lives}")
+                # print(f"Lives remaining: {self.player.lives}")lives
             else:
                 return "death"
 
@@ -164,6 +168,8 @@ class Game:
             if not self.fruit_sprites:
                 return "goal"
             else:
+                self.notification_msg = "Please collect all fruits to unlock the goal!"
+                self.notification_timer = pygame.time.get_ticks()
                 return "locked_goal"
 
         return "alive"
@@ -172,6 +178,15 @@ class Game:
         score_surf = self.font.render(f'SCORE: {self.score} | LEVEL: {self.level_index + 1} | LIVES: {self.player.lives}', True, TEXT_COLOR)
         score_rect = score_surf.get_rect(topleft=(30, 20))
         self.display_surface.blit(score_surf, score_rect)
+        
+        if self.notification_msg and pygame.time.get_ticks() - self.notification_timer < 2500:
+            notif_surf = self.font.render(self.notification_msg, True, (255, 50, 50))
+            notif_rect = notif_surf.get_rect(center=(WINDOW_WIDTH//2, 100))
+            bg_rect = notif_rect.copy()
+            bg_rect.inflate_ip(20, 10)
+            pygame.draw.rect(self.display_surface, (0, 0, 0), bg_rect)
+            pygame.draw.rect(self.display_surface, (255, 255, 255), bg_rect, 2)
+            self.display_surface.blit(notif_surf, notif_rect)
         
         if cv_controller and cv_controller.surface:
             pip_w, pip_h = 320, 240
@@ -197,7 +212,7 @@ class Game:
             
         self.all_sprites.update(dt)
         
-        # Unlock goal if all fruits are collected
+        # Unlock goal if all fruits are collected (immediate win check handles this now)
         if not self.fruit_sprites:
             for goal in self.goal_sprites:
                 if hasattr(goal, 'unlock'):

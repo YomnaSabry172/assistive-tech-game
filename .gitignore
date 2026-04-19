@@ -16,3 +16,5 @@ venv
 venv311
 /src/hand_rehab_game.py
 /tasks
+patient_timeline.png
+patient_session_stats.json
