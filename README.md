@@ -231,7 +231,7 @@ This project is grounded in peer-reviewed research on game-based hand rehabilita
 
 **Course:** SBES345 Assistive Technology
 **Institution:** Faculty of Engineering, Cairo University
-**Year:** 2025
+**Year:** 2026
 
 ---
 
